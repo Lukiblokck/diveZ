@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=diveZ
+Name[es]=diveZ
+Comment=Use Diver-Office on Linux with your Diver USB reader
+Comment[es]=Usa Diver-Office en Linux con tu lector Diver USB
+Exec=@LAUNCH@
+Icon=divez
+Terminal=false
+Categories=Science;Utility;
+Actions=settings;
+
+[Desktop Action settings]
+Name=Settings page in the browser
+Name[es]=Página de ajustes en el navegador
+Exec=@BIN@ --ui

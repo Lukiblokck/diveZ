@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>diveZ</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--fg:#1c2330;--mut:#667085;--ok:#1a9d55;--warn:#d98a00;--bad:#d92d20;--acc:#1763d1;--bd:#e3e6eb}
+@media (prefers-color-scheme:dark){:root{--bg:#12151b;--card:#1b2029;--fg:#e8ecf3;--mut:#9aa4b5;--bd:#2a3140;--acc:#5b9bff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,sans-serif}
+main{max-width:560px;margin:0 auto;padding:20px 16px 40px}
+h1{margin:0 0 4px;font-size:26px}h1 span{color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;margin:14px 0}
+.row{display:flex;gap:10px;align-items:flex-start;padding:8px 0}
+.row+.row{border-top:1px solid var(--bd)}
+.dot{width:12px;height:12px;border-radius:50%;margin-top:6px;flex:none;background:var(--mut)}
+.ok{background:var(--ok)}.warn{background:var(--warn)}.bad{background:var(--bad)}
+.row b{display:block}.row small{color:var(--mut)}
+button{font:inherit;border:1px solid var(--bd);background:var(--card);color:var(--fg);padding:10px 14px;border-radius:10px;cursor:pointer}
+button.main{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600;width:100%;padding:14px;font-size:18px}
+button:disabled{opacity:.45;cursor:default}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+label{display:block;margin:10px 0 4px;font-weight:600}
+select,input[type=text]{width:100%;font:inherit;padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--fg)}
+details summary{cursor:pointer;font-weight:600}
+.foot{color:var(--mut);font-size:13px;text-align:center;margin-top:18px}
+#msg{min-height:1.4em;color:var(--mut);margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+<h1>dive<span>Z</span></h1>
+<div id="sub" style="color:var(--mut)"></div>
+
+<div class="card" id="status"></div>
+<button class="main" id="launch"></button>
+<div id="msg"></div>
+
+<div class="card">
+<details id="set"><summary id="t_set"></summary>
+<label id="l_serial"></label><select id="serial"></select>
+<label id="l_exe"></label><select id="exesel"></select>
+<input type="text" id="exe" placeholder="C:\Program Files\...\DiverOffice.exe">
+<label id="l_prefix"></label><input type="text" id="prefix" placeholder="~/.wine">
+<label><input type="checkbox" id="auto"> <span id="l_auto"></span></label>
+<div class="btns"><button id="save"></button></div>
+</details>
+</div>
+
+<div class="btns">
+<button id="folder"></button>
+<button id="quit"></button>
+</div>
+<div class="foot" id="foot"></div>
+</main>
+<script>
+const T={
+es:{sub:"Usa Diver-Office en Linux con tu lector Diver USB.",usb:"Lector Diver (USB)",usb_ok:"Conectado",usb_missing:"Conecta la unidad Diver por USB.",usb_perm:"Sin permiso para usar el puerto USB. Ejecuta el instalador de diveZ y vuelve a iniciar sesión.",usb_other:"No se pudo abrir el puerto: ",wine:"Wine",wine_ok:"Encontrado",wine_missing:"Falta Wine. Instálalo desde el gestor de paquetes de tu distribución.",prefix_bad:"Todavía no existe el entorno de Wine. Instala Diver-Office con Wine primero.",prefix_ok:"Puerto COM9 listo",de:"Diver-Office",de_running:"En ejecución",de_ready:"Listo para abrir",de_missing:"No lo encuentro. Elígelo en Ajustes.",launch:"Abrir Diver-Office",launching:"Abriendo…",launched:"Diver-Office se está abriendo. En él, elige el puerto COM9.",settings:"Ajustes",serial:"Lector USB",serial_auto:"Automático",exe:"Programa Diver-Office",exe_auto:"Detectar automáticamente",exe_custom:"Otra ruta (abajo)",prefix:"Carpeta de Wine (opcional)",autolaunch:"Abrir Diver-Office al iniciar diveZ",save:"Guardar",saved:"Guardado.",folder:"Abrir carpeta de datos",quit:"Cerrar diveZ",closed:"diveZ se ha cerrado. Puedes cerrar esta pestaña.",ram:"Memoria usada por diveZ",err_AlreadyRunning:"Diver-Office ya está abierto.",err_WineNotFound:"Falta Wine.",err_ExeNotFound:"No encuentro Diver-Office. Elígelo en Ajustes.",err_SpawnFailed:"No se pudo iniciar Wine.",traffic:"Datos"},
+en:{sub:"Use Diver-Office on Linux with your Diver USB reader.",usb:"Diver reader (USB)",usb_ok:"Connected",usb_missing:"Plug in the Diver unit via USB.",usb_perm:"No permission to use the USB port. Run the diveZ installer and log in again.",usb_other:"Could not open the port: ",wine:"Wine",wine_ok:"Found",wine_missing:"Wine is missing. Install it from your distribution's package manager.",prefix_bad:"The Wine environment does not exist yet. Install Diver-Office with Wine first.",prefix_ok:"COM9 port ready",de:"Diver-Office",de_running:"Running",de_ready:"Ready to open",de_missing:"Cannot find it. Pick it in Settings.",launch:"Open Diver-Office",launching:"Opening…",launched:"Diver-Office is opening. In it, choose port COM9.",settings:"Settings",serial:"USB reader",serial_auto:"Automatic",exe:"Diver-Office program",exe_auto:"Detect automatically",exe_custom:"Other path (below)",prefix:"Wine folder (optional)",autolaunch:"Open Diver-Office when diveZ starts",save:"Save",saved:"Saved.",folder:"Open data folder",quit:"Close diveZ",closed:"diveZ has closed. You can close this tab.",ram:"Memory used by diveZ",err_AlreadyRunning:"Diver-Office is already open.",err_WineNotFound:"Wine is missing.",err_ExeNotFound:"Cannot find Diver-Office. Pick it in Settings.",err_SpawnFailed:"Could not start Wine.",traffic:"Data"}};
+const L=(navigator.language||"en").toLowerCase().startsWith("es")?"es":"en";
+const t=k=>T[L][k]||k;
+const $=id=>document.getElementById(id);
+const tok=new URLSearchParams(location.search).get("t")||"";
+const api=(p,b)=>fetch(p,{method:b===undefined?"GET":"POST",headers:{"X-DiveZ-Token":tok,"Content-Type":"application/json"},body:b===undefined?undefined:JSON.stringify(b)}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
+document.documentElement.lang=L;
+for(const [id,k] of [["sub","sub"],["t_set","settings"],["l_serial","serial"],["l_exe","exe"],["l_prefix","prefix"],["l_auto","autolaunch"],["save","save"],["folder","folder"],["quit","quit"]])$(id).textContent=t(k);
+$("launch").textContent=t("launch");
+
+function row(cls,title,text){
+  const r=document.createElement("div");r.className="row";
+  const d=document.createElement("div");d.className="dot "+cls;
+  const c=document.createElement("div");
+  const b=document.createElement("b");b.textContent=title;
+  const s=document.createElement("small");s.textContent=text;
+  c.append(b,s);r.append(d,c);return r;
+}
+let formLoaded=false,last=null;
+function render(s){
+  last=s;
+  const st=$("status");st.replaceChildren();
+  let u=["ok",t("usb_ok")+" · "+s.serial_path+(s.line?" ("+s.line+")":"")];
+  if(!s.serial_online){
+    u=s.serial_error==="permission"?["bad",t("usb_perm")]:
+      (s.serial_error===""||s.serial_error==="missing")?["warn",t("usb_missing")]:["bad",t("usb_other")+s.serial_error];
+  }
+  st.append(row(u[0],t("usb"),u[1]));
+  st.append(row(s.wine_found?"ok":"bad",t("wine"),s.wine_found?t("wine_ok"):t("wine_missing")));
+  st.append(row(s.prefix_ready?"ok":"warn","COM9",s.prefix_ready?t("prefix_ok"):t("prefix_bad")));
+  const d=s.diver_running?["ok",t("de_running")]:(s.exe?["ok",t("de_ready")+" · "+s.exe]:["warn",t("de_missing")]);
+  st.append(row(d[0],t("de"),d[1]));
+  $("launch").disabled=s.diver_running||!s.wine_found||!s.exe;
+  $("foot").textContent=t("ram")+": "+(s.rss_kb/1024).toFixed(1)+" MB · "+t("traffic")+": ↑"+s.to_device+" B ↓"+s.from_device+" B · v"+s.version;
+  if(!formLoaded){formLoaded=true;$("prefix").value=s.settings.prefix;$("exe").value=s.settings.exe;$("auto").checked=s.settings.autolaunch;loadDetect();}
+}
+function opt(v,txt){const o=document.createElement("option");o.value=v;o.textContent=txt;return o}
+function loadDetect(){
+  api("/api/detect").then(d=>{
+    const ss=$("serial");ss.replaceChildren(opt("auto",t("serial_auto")));
+    for(const p of d.serials)ss.append(opt(p,p));
+    if(last&&last.settings.serial!=="auto"&&!d.serials.includes(last.settings.serial))ss.append(opt(last.settings.serial,last.settings.serial));
+    ss.value=last?last.settings.serial:"auto";
+    const es=$("exesel");es.replaceChildren(opt("",t("exe_auto")));
+    for(const p of d.exes)es.append(opt(p,p));
+    es.append(opt("*",t("exe_custom")));
+    const cur=last?last.settings.exe:"";
+    es.value=cur===""?"":(d.exes.includes(cur)?cur:"*");
+  }).catch(()=>{});
+}
+$("exesel").onchange=e=>{ if(e.target.value!=="*") $("exe").value=e.target.value; };
+function poll(){
+  if(document.hidden)return;
+  api("/api/status").then(render).catch(()=>{$("msg").textContent=t("closed");$("launch").disabled=true;});
+}
+$("launch").onclick=()=>{
+  $("msg").textContent=t("launching");
+  api("/api/launch",{}).then(r=>{$("msg").textContent=r.ok?t("launched"):(t("err_"+r.reason)||r.reason);poll();});
+};
+$("save").onclick=()=>{
+  const sel=$("exesel").value;
+  const exe=sel==="*"?$("exe").value.trim():sel;
+  api("/api/config",{serial:$("serial").value,exe:exe,prefix:$("prefix").value.trim(),autolaunch:$("auto").checked})
+    .then(r=>{$("msg").textContent=r.ok?t("saved"):r.reason;formLoaded=false;poll();});
+};
+$("folder").onclick=()=>api("/api/open-captures",{});
+$("quit").onclick=()=>api("/api/quit",{}).then(()=>{$("msg").textContent=t("closed");$("launch").disabled=true;}).catch(()=>{});
+document.addEventListener("visibilitychange",poll);
+poll();setInterval(poll,2000);
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Access to USB serial nodes for the Diver reading unit.
+#
+# @GROUP@ is substituted by the installer (dialout on Debian/Void/Alpine, uucp on Arch).
+# TAG+="uaccess" grants the logged-in seat user access under systemd-logind/elogind;
+# GROUP/MODE is the fallback for setups without a session manager.
+SUBSYSTEM=="tty", KERNEL=="ttyUSB[0-9]*", TAG+="uaccess", GROUP="@GROUP@", MODE="0660"
+SUBSYSTEM=="tty", KERNEL=="ttyACM[0-9]*", TAG+="uaccess", GROUP="@GROUP@", MODE="0660"
+
+# Optional: stable name. Fill in the IDs from `lsusb`, uncomment, then set the
+# reader to /dev/diver0 in diveZ's settings (or just leave it on "Automatic":
+# diveZ prefers /dev/diver0 when it exists).
+#SUBSYSTEM=="tty", ATTRS{idVendor}=="xxxx", ATTRS{idProduct}=="yyyy", SYMLINK+="diver0"

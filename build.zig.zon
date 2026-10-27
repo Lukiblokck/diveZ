@@ -1,0 +1,12 @@
+.{
+    .name = "divez",
+    .version = "0.2.0",
+    .paths = .{ "build.zig", "build.zig.zon", "src", "gui" },
+    .dependencies = .{
+        .dvui = .{
+            .lazy = true,
+            .url = "https://github.com/david-vanderson/dvui/archive/refs/tags/v0.2.0.tar.gz",
+            .hash = "122044e22bc953f8f4653110dcb702653bdd4d43c2284e2868d8ba7c3290dab2bdaf",
+        },
+    },
+}

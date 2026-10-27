@@ -1,0 +1,11 @@
+# Installed to /etc/systemd/user/. Enable per user:  systemctl --user enable --now divez
+[Unit]
+Description=diveZ serial bridge for Diver-Office
+
+[Service]
+ExecStart=@BIN@ --service
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

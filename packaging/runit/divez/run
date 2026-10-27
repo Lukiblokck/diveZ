@@ -1,0 +1,2 @@
+#!/bin/sh
+exec chpst -u @USER@:@GROUP@ env HOME=@HOME@ @BIN@ --service 2>&1
