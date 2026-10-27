@@ -1,13 +1,13 @@
 
 #!/bin/sh
-# diveZ installer.
+# diveZ installer
 #
-# Local installation:
+# Local:
 #   sh install.sh
 #   sh install.sh --service
 #   sh install.sh --uninstall
 #
-# Remote installation:
+# Remote:
 #   curl -fsSL https://raw.githubusercontent.com/Lukiblokck/diveZ/main/install.sh | sh
 #   curl -fsSL https://raw.githubusercontent.com/Lukiblokck/diveZ/main/install.sh | sh -s -- --service
 
@@ -17,7 +17,7 @@ say() {
     printf '%s\n' "$*"
 }
 
-# Find the repository when running locally.
+# Locate repository or bootstrap it when invoked through curl | sh.
 script_dir=""
 case "$0" in
     */install.sh|install.sh)
@@ -27,12 +27,11 @@ esac
 
 if [ -n "$script_dir" ] && [ -d "$script_dir/packaging" ]; then
     here=$script_dir
-elif [ -f "./install.sh" ] && [ -d "./packaging" ]; then
+elif [ -f ./install.sh ] && [ -d ./packaging ]; then
     here=$(pwd)
 else
-    # The script is being piped to sh, so download the repository.
     command -v tar >/dev/null 2>&1 || {
-        say "Error: tar is required to install diveZ."
+        say "Error: tar is required."
         exit 1
     }
 
@@ -52,19 +51,14 @@ else
         exit 1
     fi
 
-    if ! tar -xzf "$archive" -C "$tmp"; then
-        say "Error: could not extract the diveZ archive."
-        exit 1
-    fi
-
+    tar -xzf "$archive" -C "$tmp"
     repo="$tmp/diveZ-main"
 
     if [ ! -f "$repo/install.sh" ] || [ ! -d "$repo/packaging" ]; then
-        say "Error: invalid or incomplete diveZ repository archive."
+        say "Error: invalid diveZ archive."
         exit 1
     fi
 
-    # Keep the downloaded repository available throughout installation.
     if sh "$repo/install.sh" "$@"; then
         exit 0
     else
@@ -82,8 +76,8 @@ icondir="$data/icons/hicolor/scalable/apps"
 service=0
 uninstall=0
 
-for a in "$@"; do
-    case "$a" in
+for arg in "$@"; do
+    case "$arg" in
         --service) service=1 ;;
         --uninstall) uninstall=1 ;;
         *)
@@ -95,11 +89,10 @@ done
 
 if [ "$(id -u)" -eq 0 ]; then
     say "Please run this as your normal user, not as root."
-    say "The installer will request administrator privileges when needed."
     exit 1
 fi
 
-# Run a command as root: graphical prompt first, then sudo/doas.
+# Privilege helper: graphical prompt, sudo, or doas.
 priv() {
     if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] &&
        command -v pkexec >/dev/null 2>&1; then
@@ -140,18 +133,16 @@ if [ "$uninstall" -eq 1 ]; then
 
     if ! priv /bin/sh -c \
         'rm -f /etc/udev/rules.d/70-diver.rules'; then
-        say "Warning: could not remove the udev rule automatically."
-        say "Remove /etc/udev/rules.d/70-diver.rules manually if necessary."
+        say "Warning: could not remove the USB rule automatically."
     fi
 
     priv /bin/sh "$pk/root-service.sh" uninstall 2>/dev/null || true
 
-    say "diveZ has been uninstalled."
-    say "User data in ~/diveZ and ~/.config/divez has been kept."
+    say "diveZ uninstalled. User data was kept."
     exit 0
 fi
 
-# 1. Select the appropriate binary.
+# 1. Locate the CLI binary.
 arch=$(uname -m)
 
 case "$arch" in
@@ -163,49 +154,81 @@ src="$here/zig-out/bin/divez"
 [ -x "$src" ] || src="$here/dist/divez-$arch"
 
 if [ ! -x "$src" ]; then
-    say "Error: no executable diveZ binary for '$arch'."
-    say "Build one with Zig 0.13: zig build -Dstrip=true"
+    say "Error: no diveZ binary for '$arch'."
+    say "Build it with Zig 0.13: zig build -Dstrip=true"
     exit 1
 fi
 
-# 2. Find the optional graphical application.
-# Build with: zig build -Dgui=true -Dstrip=true -Dfsys=sdl2
+# 2. Locate or build the GUI.
 gui=""
 
-for c in \
+for candidate in \
     "$here/zig-out/bin/divez-gui" \
     "$here/dist/divez-gui" \
+    "$here/dist/divez-gui-$arch" \
     "$here/divez-gui"; do
-    if [ -x "$c" ]; then
-        gui=$c
+    if [ -x "$candidate" ]; then
+        gui=$candidate
         break
     fi
 done
 
-if [ -n "$gui" ] &&
-   command -v ldd >/dev/null 2>&1 &&
-   ldd "$gui" 2>/dev/null | grep -q "not found"; then
-    say "Warning: the diveZ GUI requires missing libraries:"
-    ldd "$gui" 2>/dev/null | grep "not found" |
-        sed 's/^[[:space:]]*/   /'
-    say "Install SDL2 with your distribution's package manager if needed."
-    say "The CLI will still be installed."
-    gui=""
+if [ -z "$gui" ]; then
+    if ! command -v zig >/dev/null 2>&1; then
+        say "Error: divez-gui is missing and Zig is not installed."
+        say "Install Zig 0.13 and SDL2 development files, then retry."
+        exit 1
+    fi
+
+    say "==> Building diveZ GUI (this may take a while)..."
+
+    if ! (cd "$here" && zig build -Dgui=true -Dstrip=true -Dfsys=sdl2); then
+        say "Error: GUI build failed."
+        say "Check Zig 0.13, network access and SDL2 development files."
+        exit 1
+    fi
+
+    gui="$here/zig-out/bin/divez-gui"
+
+    if [ ! -x "$gui" ]; then
+        say "Error: the GUI binary was not produced."
+        exit 1
+    fi
 fi
 
-# 3. Install user binaries and desktop integration.
+# Check GUI runtime dependencies when ldd is available.
+if command -v ldd >/dev/null 2>&1 &&
+   ldd "$gui" 2>/dev/null | grep -q "not found"; then
+    say "Error: the GUI needs missing runtime libraries:"
+    ldd "$gui" 2>/dev/null | grep "not found" |
+        sed 's/^[[:space:]]*/   /'
+    say "Install the missing libraries, then run this installer again."
+    exit 1
+fi
+
+# 3. Install CLI and GUI.
 say "==> Installing diveZ for $USER"
 
 install -Dm755 "$src" "$bindir/divez"
+install -Dm755 "$gui" "$bindir/divez-gui"
 
-launch="$bindir/divez"
+# Make commands available in future login shells.
+profile="$HOME/.profile"
 
-if [ -n "$gui" ]; then
-    install -Dm755 "$gui" "$bindir/divez-gui"
-    launch="$bindir/divez-gui"
-elif [ -x "$bindir/divez-gui" ]; then
-    launch="$bindir/divez-gui"
+if ! grep -Fq '.local/bin' "$profile" 2>/dev/null; then
+    cat >> "$profile" <<'PROFILE'
+
+# User-installed applications
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) PATH="$HOME/.local/bin:$PATH" ;;
+esac
+export PATH
+PROFILE
 fi
+
+# The GUI is the main desktop entry.
+launch="$bindir/divez-gui"
 
 mkdir -p "$appdir" "$icondir"
 
@@ -242,7 +265,6 @@ if [ -z "$group" ]; then
 fi
 
 say "==> Configuring USB permissions (group: $group)"
-say "You may be asked for your administrator password."
 
 if ! priv /bin/sh "$pk/root-setup.sh" \
     "$USER" "$group" "$pk/udev/70-diver.rules"; then
@@ -254,7 +276,6 @@ fi
 # 5. Optional init service.
 if [ "$service" -eq 1 ]; then
     init=$(detect_init)
-
     say "==> Installing init service ($init)"
 
     if priv /bin/sh "$pk/root-service.sh" install \
@@ -265,7 +286,7 @@ if [ "$service" -eq 1 ]; then
                 ;;
             runit)
                 say "Enable with: sudo ln -s /etc/sv/divez /var/service/"
-                say "Or use /run/runit/service/ if that is your service directory."
+                say "Use your configured runit service directory if different."
                 ;;
             openrc)
                 say "Enable with: sudo rc-update add divez default"
@@ -279,16 +300,18 @@ fi
 
 say ""
 say "diveZ installation complete."
-say "Open diveZ from your applications menu."
+say "GUI command: divez-gui"
+say "CLI command: divez"
 
 if ! command -v wine >/dev/null 2>&1; then
-    say "Note: Wine is not installed. Install it with your package manager."
+    say "Note: Wine is not installed. Install it using your package manager."
 fi
 
 case ":$PATH:" in
     *":$bindir:"*) ;;
     *)
-        say "Note: $bindir is not in PATH."
-        say "You can launch diveZ from the menu or run: $launch"
+        say "Note: $bindir is not currently in PATH."
+        say "Open a new login shell or run:"
+        say "export PATH=\"$bindir:\$PATH\""
         ;;
 esac
