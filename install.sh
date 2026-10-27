@@ -6,9 +6,64 @@
 #   ./install.sh               install for the current user
 #   ./install.sh --service     also install an init service (advanced, headless mode)
 #   ./install.sh --uninstall   remove everything this script installed
+
 set -eu
 
-here=$(cd "$(dirname "$0")" && pwd)
+# Locate the repository when running locally, or download it when piped to sh.
+script_dir=""
+case "$0" in
+    install.sh|*/install.sh)
+        script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
+        ;;
+esac
+
+if [ -n "$script_dir" ] && [ -d "$script_dir/packaging" ]; then
+    here=$script_dir
+elif [ -f ./install.sh ] && [ -d ./packaging ]; then
+    here=$(pwd)
+else
+    say_bootstrap() { printf '%s\n' "$*"; }
+
+    if ! command -v tar >/dev/null 2>&1; then
+        say_bootstrap "Error: tar is required to download diveZ."
+        exit 1
+    fi
+
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+
+    archive="$tmp/source.tar.gz"
+    url="https://github.com/Lukiblokck/diveZ/archive/refs/heads/main.tar.gz"
+
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "$url" -o "$archive"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q "$url" -O "$archive"
+    else
+        say_bootstrap "Error: install curl or wget first."
+        exit 1
+    fi
+
+    if ! tar -xzf "$archive" -C "$tmp"; then
+        say_bootstrap "Error: could not extract the diveZ archive."
+        exit 1
+    fi
+
+    repo="$tmp/diveZ-main"
+
+    if [ ! -f "$repo/install.sh" ] || [ ! -d "$repo/packaging" ]; then
+        say_bootstrap "Error: the downloaded archive is incomplete."
+        exit 1
+    fi
+
+    if sh "$repo/install.sh" "$@"; then
+        exit 0
+    else
+        status=$?
+        exit "$status"
+    fi
+fi
+
 pk="$here/packaging"
 data="${XDG_DATA_HOME:-$HOME/.local/share}"
 bindir="$HOME/.local/bin"
